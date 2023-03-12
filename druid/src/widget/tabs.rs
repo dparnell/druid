@@ -20,7 +20,8 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use tracing::{instrument, trace};
+use tracing::{debug, instrument, trace};
+use druid::Selector;
 
 use crate::commands::SCROLL_TO_VIEW;
 use crate::kurbo::{Circle, Line};
@@ -33,6 +34,8 @@ type TabBodyPod<TP> = WidgetPod<<TP as TabsPolicy>::Input, <TP as TabsPolicy>::B
 type TabBarPod<TP> = WidgetPod<TabsState<TP>, Box<dyn Widget<TabsState<TP>>>>;
 type TabIndex = usize;
 type Nanos = u64;
+
+const FOCUS_TAB: Selector<WidgetId> = Selector::new("druid-builtin.focus-tab");
 
 /// Information about a tab that may be used by the TabPolicy to
 /// drive the visual presentation and behaviour of its label
@@ -51,6 +54,14 @@ impl<Input> TabInfo<Input> {
             can_close,
         }
     }
+}
+
+/// What to do when the tab selection changes
+pub enum TabChangeAction {
+    /// do nothing when the tab index changes
+    Nothing,
+    /// attempt to focus the tab contents when the selected tab changes
+    Focus(WidgetId)
 }
 
 /// A policy that determines how a Tabs instance derives its tabs from its app data.
@@ -115,6 +126,10 @@ pub trait TabsPolicy: Data {
     fn default_make_label(info: TabInfo<Self::Input>) -> Label<Self::Input> {
         Label::new(info.name).with_text_color(theme::FOREGROUND_LIGHT)
     }
+
+    /// Called when the selected tab changes.
+    #[allow(unused_variables)]
+    fn selected_changed(&self, key: &Self::Key) -> TabChangeAction { TabChangeAction::Nothing }
 }
 
 /// A TabsPolicy that allows the app developer to provide static tabs up front when building the
@@ -356,6 +371,12 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
                     ctx.request_paint();
                 }
             }
+            Event::Command(cmd) if cmd.is(FOCUS_TAB) => {
+                let target = cmd.get_unchecked(FOCUS_TAB);
+                debug!("try to focus: {:?}", target);
+                ctx.set_focus(target.clone());
+                ctx.set_handled();
+            }
             _ => {}
         }
 
@@ -398,6 +419,15 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
             self.ensure_tabs(data);
             ctx.children_changed();
         } else if old_data.selected != data.selected {
+            if let Some((key, _tab)) = self.tabs.get(data.selected) {
+                match data.policy.selected_changed(key) {
+                    TabChangeAction::Nothing => {}
+                    TabChangeAction::Focus(id) => {
+                        ctx.submit_command(druid::Command::new(FOCUS_TAB, id, ctx.widget_id()))
+                    }
+                }
+            }
+
             ctx.request_paint();
         }
     }

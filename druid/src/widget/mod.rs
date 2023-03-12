@@ -102,7 +102,7 @@ pub use stepper::Stepper;
 #[cfg(feature = "svg")]
 pub use svg::{Svg, SvgData};
 pub use switch::Switch;
-pub use tabs::{AddTab, TabInfo, Tabs, TabsEdge, TabsPolicy, TabsState, TabsTransition};
+pub use tabs::{AddTab, TabInfo, Tabs, TabsEdge, TabsPolicy, TabsState, TabsTransition, TabChangeAction};
 pub use textbox::TextBox;
 pub use value_textbox::{TextBoxEvent, ValidationDelegate, ValueTextBox};
 pub use view_switcher::ViewSwitcher;

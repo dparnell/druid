@@ -18,40 +18,55 @@
 #![windows_subsystem = "windows"]
 
 use druid::im::Vector;
-use druid::widget::{
-    Axis, Button, CrossAxisAlignment, Flex, Label, MainAxisAlignment, RadioGroup, Split, TabInfo,
-    Tabs, TabsEdge, TabsPolicy, TabsTransition, TextBox, ViewSwitcher,
-};
-use druid::{theme, AppLauncher, Color, Data, Env, Lens, Widget, WidgetExt, WindowDesc};
+use druid::widget::{Axis, Button, CrossAxisAlignment, Flex, Label, LensWrap, MainAxisAlignment, RadioGroup, Split, TabChangeAction, TabInfo, Tabs, TabsEdge, TabsPolicy, TabsTransition, TextBox, ViewSwitcher};
+use druid::{theme, AppLauncher, Color, Data, Env, Lens, Widget, WidgetExt, WindowDesc, LensExt, WidgetId};
 use instant::Duration;
+
+#[derive(Data, Clone, Lens)]
+struct TabContent {
+    #[data(ignore)]
+    id: WidgetId,
+    title: String,
+    value: String
+}
 
 #[derive(Data, Clone, Lens)]
 struct DynamicTabData {
     highest_tab: usize,
     removed_tabs: usize,
-    tab_labels: Vector<usize>,
+    tab_content: Vector<TabContent>,
 }
 
 impl DynamicTabData {
     fn new(highest_tab: usize) -> Self {
+        let tabs: Vec<TabContent> = (0..highest_tab).map(|index| TabContent {
+            id: WidgetId::next(),
+            title: format!("Tab {:?}", index + 1),
+            value: format!("Dynamic tab data {:?}", index + 1)
+        }).collect();
+
         DynamicTabData {
             highest_tab,
             removed_tabs: 0,
-            tab_labels: (1..=highest_tab).collect(),
+            tab_content: Vector::from(tabs)
         }
     }
 
     fn add_tab(&mut self) {
+        self.tab_content.push_back(TabContent {
+            id: WidgetId::next(),
+            title: format!("Tab {:?}", self.highest_tab + 1),
+            value: format!("Dynamic tab {:?}", self.highest_tab + 1)
+        });
         self.highest_tab += 1;
-        self.tab_labels.push_back(self.highest_tab);
     }
 
     fn remove_tab(&mut self, idx: usize) {
-        if idx >= self.tab_labels.len() {
+        if idx >= self.tab_content.len() {
             tracing::warn!("Attempt to remove non existent tab at index {}", idx)
         } else {
             self.removed_tabs += 1;
-            self.tab_labels.remove(idx);
+            self.tab_content.remove(idx);
         }
     }
 
@@ -167,32 +182,35 @@ fn build_root_widget() -> impl Widget<AppState> {
 struct NumberedTabs;
 
 impl TabsPolicy for NumberedTabs {
-    type Key = usize;
-    type Build = ();
+    type Key = (usize, WidgetId);
     type Input = DynamicTabData;
+    type BodyWidget = Box<dyn Widget <DynamicTabData>>;
     type LabelWidget = Label<DynamicTabData>;
-    type BodyWidget = Label<DynamicTabData>;
+    type Build = ();
 
     fn tabs_changed(&self, old_data: &DynamicTabData, data: &DynamicTabData) -> bool {
         old_data.tabs_key() != data.tabs_key()
     }
 
     fn tabs(&self, data: &DynamicTabData) -> Vec<Self::Key> {
-        data.tab_labels.iter().copied().collect()
+        data.tab_content.iter().enumerate().map(|(idx, content)| (idx, content.id)).collect()
     }
 
-    fn tab_info(&self, key: Self::Key, _data: &DynamicTabData) -> TabInfo<DynamicTabData> {
-        TabInfo::new(format!("Tab {key:?}"), true)
+    fn tab_info(&self, key: Self::Key, data: &DynamicTabData) -> TabInfo<DynamicTabData> {
+        let (idx, _) = key;
+
+        let title = if let Some(tab) = data.tab_content.get(idx) {
+            tab.title.clone()
+        } else {
+            String::new()
+        };
+
+        TabInfo::new(title, true)
     }
 
-    fn tab_body(&self, key: Self::Key, _data: &DynamicTabData) -> Label<DynamicTabData> {
-        Label::new(format!("Dynamic tab body {key:?}"))
-    }
-
-    fn close_tab(&self, key: Self::Key, data: &mut DynamicTabData) {
-        if let Some(idx) = data.tab_labels.index_of(&key) {
-            data.remove_tab(idx)
-        }
+    fn tab_body(&self, key: Self::Key, _data: &DynamicTabData) -> Box<dyn Widget<DynamicTabData>> {
+        let (idx, id) = key;
+        LensWrap::new(TextBox::multiline().lens(TabContent::value).with_id(id), DynamicTabData::tab_content.index(idx)).expand().boxed()
     }
 
     fn tab_label(
@@ -202,6 +220,16 @@ impl TabsPolicy for NumberedTabs {
         _data: &Self::Input,
     ) -> Self::LabelWidget {
         Self::default_make_label(info)
+    }
+
+    fn close_tab(&self, key: Self::Key, data: &mut DynamicTabData) {
+        let (idx, _) = key;
+        data.remove_tab(idx);
+    }
+
+    fn selected_changed(&self, key: &Self::Key) -> druid::widget::TabChangeAction {
+        let (_idx, id) = key;
+        TabChangeAction::Focus(id.clone())
     }
 }
 
