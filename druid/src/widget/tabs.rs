@@ -20,7 +20,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use tracing::{debug, instrument, trace};
+use tracing::{instrument, trace};
 use druid::Selector;
 
 use crate::commands::SCROLL_TO_VIEW;
@@ -373,7 +373,6 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
             }
             Event::Command(cmd) if cmd.is(FOCUS_TAB) => {
                 let target = cmd.get_unchecked(FOCUS_TAB);
-                debug!("try to focus: {:?}", target);
                 ctx.set_focus(target.clone());
                 ctx.set_handled();
             }
