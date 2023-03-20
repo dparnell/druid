@@ -20,7 +20,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use tracing::{instrument, trace};
+use tracing::{debug, instrument, trace};
 use druid::Selector;
 
 use crate::commands::SCROLL_TO_VIEW;
@@ -36,6 +36,7 @@ type TabIndex = usize;
 type Nanos = u64;
 
 const FOCUS_TAB: Selector<WidgetId> = Selector::new("druid-builtin.focus-tab");
+const SELECT_TAB: Selector<TabIndex> = Selector::new("druid-builtin.select-tab");
 
 /// Information about a tab that may be used by the TabPolicy to
 /// drive the visual presentation and behaviour of its label
@@ -235,15 +236,18 @@ impl<T: Data> AddTab for StaticTabs<T> {
 pub struct TabsState<TP: TabsPolicy> {
     inner: TP::Input,
     selected: TabIndex,
+    #[data(ignore)]
+    selected_key: Option<TP::Key>,
     policy: TP,
 }
 
 impl<TP: TabsPolicy> TabsState<TP> {
     /// Create a new TabsState
-    pub fn new(inner: TP::Input, selected: usize, policy: TP) -> Self {
+    pub fn new(inner: TP::Input, selected: TabIndex, policy: TP) -> Self {
         TabsState {
             inner,
             selected,
+            selected_key: None,
             policy,
         }
     }
@@ -358,6 +362,11 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
             Event::MouseDown(e) => {
                 if let Some(idx) = self.find_idx(e.pos) {
                     data.selected = idx;
+                    if let Some((key, _)) = self.tabs.get(idx) {
+                        data.selected_key = Some(key.clone());
+                    } else {
+                        data.selected_key = None
+                    }
                 }
             }
             Event::MouseMove(e) => {
@@ -374,6 +383,25 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
             Event::Command(cmd) if cmd.is(FOCUS_TAB) => {
                 let target = cmd.get_unchecked(FOCUS_TAB);
                 ctx.set_focus(target.clone());
+                ctx.set_handled();
+            }
+            Event::Command(cmd) if cmd.is(SELECT_TAB) => {
+                let idx = cmd.get_unchecked(SELECT_TAB);
+                debug!("select_tab: {idx:?}");
+                data.selected = *idx;
+                let len = self.tabs.len();
+                if len == 0 {
+                    data.selected = 0;
+                } else if data.selected >= len {
+                    data.selected = len - 1;
+                }
+
+                if let Some((key, _)) = self.tabs.get(data.selected) {
+                    data.selected_key = Some(key.clone());
+                } else {
+                    data.selected_key = None
+                }
+                ctx.request_update();
                 ctx.set_handled();
             }
             _ => {}
@@ -417,17 +445,40 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
         if data.policy.tabs_changed(&old_data.inner, &data.inner) {
             self.ensure_tabs(data);
             ctx.children_changed();
-        } else if old_data.selected != data.selected {
-            if let Some((key, _tab)) = self.tabs.get(data.selected) {
-                match data.policy.selected_changed(key) {
-                    TabChangeAction::Nothing => {}
-                    TabChangeAction::Focus(id) => {
-                        ctx.submit_command(druid::Command::new(FOCUS_TAB, id, ctx.widget_id()))
+            ctx.submit_command(druid::Command::new(SELECT_TAB, data.selected, ctx.widget_id()));
+        } else {
+            let old_key = self.tabs.get(old_data.selected);
+            let current_key = self.tabs.get(data.selected);
+            if old_key.is_some() && current_key.is_some() {
+                let (old_key, _) = old_key.unwrap();
+                let (current_key, _) = current_key.unwrap();
+
+                if old_key != current_key {
+                    match data.policy.selected_changed(current_key) {
+                        TabChangeAction::Nothing => {}
+                        TabChangeAction::Focus(id) => {
+                            ctx.submit_command(druid::Command::new(FOCUS_TAB, id, ctx.widget_id()))
+                        }
                     }
+                    ctx.submit_command(druid::Command::new(SELECT_TAB, data.selected, ctx.widget_id()));
+                    ctx.request_paint();
+                }
+            } else {
+                if old_key.is_none() && current_key.is_none() {
+                    // do nothing
+                } else {
+                    if let Some((key, _)) = current_key {
+                        match data.policy.selected_changed(key) {
+                            TabChangeAction::Nothing => {}
+                            TabChangeAction::Focus(id) => {
+                                ctx.submit_command(druid::Command::new(FOCUS_TAB, id, ctx.widget_id()))
+                            }
+                        }
+                    }
+
+                    ctx.request_paint();
                 }
             }
-
-            ctx.request_paint();
         }
     }
 
@@ -684,7 +735,7 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabsBody<TP> {
             None
         };
 
-        if old_data.selected != data.selected {
+        if old_data.selected != data.selected || old_data.selected_key != data.selected_key {
             self.transition_state = self
                 .transition
                 .tab_changed(old_data.selected, data.selected);
@@ -801,7 +852,7 @@ impl TabsTransition {
     fn tab_changed(self, old: TabIndex, new: TabIndex) -> Option<TabsTransitionState> {
         match self {
             TabsTransition::Instant => None,
-            TabsTransition::Slide(dur) => Some(TabsTransitionState::new(old, dur, old < new)),
+            TabsTransition::Slide(dur) => Some(TabsTransitionState::new(old, dur, old <= new)),
         }
     }
 }
