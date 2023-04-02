@@ -118,6 +118,40 @@ impl HotKey {
     }
 }
 
+impl ToString for HotKey {
+    fn to_string(&self) -> String {
+        let modifiers: Modifiers = Modifiers::from(self.mods);
+
+        let ctrl = if modifiers.ctrl() {
+            "Ctrl-"
+        } else {
+            ""
+        };
+        let alt = if modifiers.alt() {
+            "Alt-"
+        } else {
+            ""
+        };
+        let shift = if modifiers.shift() {
+            "Shift-"
+        } else {
+            ""
+        };
+        let meta = if modifiers.meta() {
+            "⌘-"
+        } else {
+            ""
+        };
+
+        let key = match &self.key {
+            KbKey::Character(ch) => ch.to_ascii_uppercase(),
+            other => other.to_string()
+        };
+
+        format!("{}{}{}{}{}", ctrl, alt, shift, meta, key)
+    }
+}
+
 /// A platform-agnostic representation of keyboard modifiers, for command handling.
 ///
 /// This does one thing: it allows specifying hotkeys that use the Command key
