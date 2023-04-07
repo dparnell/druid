@@ -114,7 +114,7 @@ pub trait TabsPolicy: Data {
 
     /// Change the data to reflect the user requesting to close a tab.
     #[allow(unused_variables)]
-    fn close_tab(&self, key: Self::Key, data: &mut Self::Input) {}
+    fn close_tab(&self, ctx: &mut EventCtx, key: Self::Key, data: &mut Self::Input) {}
 
     #[allow(unused_variables)]
     /// Construct an instance of this TabsFromData from its Build type.
@@ -343,8 +343,8 @@ impl<TP: TabsPolicy> TabBar<TP> {
                 let row = Flex::row()
                     .with_child(label)
                     .with_child(close_button.on_click(
-                        move |_ctx, data: &mut TabsState<TP>, _env| {
-                            data.policy.close_tab(key.clone(), &mut data.inner);
+                        move |ctx, data: &mut TabsState<TP>, _env| {
+                            data.policy.close_tab(ctx, key.clone(), &mut data.inner);
                         },
                     ));
                 WidgetPod::new(Box::new(row))

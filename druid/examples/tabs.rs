@@ -19,7 +19,7 @@
 
 use druid::im::Vector;
 use druid::widget::{Axis, Button, CrossAxisAlignment, Flex, Label, LensWrap, MainAxisAlignment, RadioGroup, Split, TabChangeAction, TabInfo, Tabs, TabsEdge, TabsPolicy, TabsTransition, TextBox, ViewSwitcher};
-use druid::{theme, AppLauncher, Color, Data, Env, Lens, Widget, WidgetExt, WindowDesc, LensExt, WidgetId};
+use druid::{theme, AppLauncher, Color, Data, Env, Lens, Widget, WidgetExt, WindowDesc, LensExt, WidgetId, EventCtx};
 use instant::Duration;
 
 #[derive(Data, Clone, Lens)]
@@ -222,7 +222,7 @@ impl TabsPolicy for NumberedTabs {
         Self::default_make_label(info)
     }
 
-    fn close_tab(&self, key: Self::Key, data: &mut DynamicTabData) {
+    fn close_tab(&self, _ctx: &mut EventCtx, key: Self::Key, data: &mut DynamicTabData) {
         let (idx, _) = key;
         data.remove_tab(idx);
     }
