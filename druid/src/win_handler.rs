@@ -84,6 +84,8 @@ struct DialogInfo {
     accept_multiple_cmd: Selector<Vec<FileInfo>>,
     /// The command to send if the dialog is cancelled.
     cancel_cmd: Selector<()>,
+    /// The optional widget to send the command to. Overrides the id
+    target_widget: Option<WidgetId>
 }
 
 struct InnerAppState<T> {
@@ -740,6 +742,7 @@ impl<T: Data> AppState<T> {
                     accept_cmd,
                     accept_multiple_cmd,
                     cancel_cmd,
+                    target_widget: options.target
                 },
             );
         }
@@ -769,6 +772,7 @@ impl<T: Data> AppState<T> {
                     accept_cmd,
                     accept_multiple_cmd,
                     cancel_cmd,
+                    target_widget: options.target
                 },
             );
         }
@@ -784,10 +788,16 @@ impl<T: Data> AppState<T> {
                 dialog_info
                     .accept_multiple_cmd
                     .with(file_info)
-                    .to(dialog_info.id)
             } else {
-                dialog_info.cancel_cmd.to(dialog_info.id)
+                Command::from(dialog_info.cancel_cmd)
             };
+
+            let cmd = if let Some(widget) = dialog_info.target_widget {
+                cmd.to(widget)
+            } else {
+                cmd.to(dialog_info.id)
+            };
+
             inner.append_command(cmd);
         } else {
             tracing::error!("unknown dialog token");
@@ -802,10 +812,17 @@ impl<T: Data> AppState<T> {
         let mut inner = self.inner.borrow_mut();
         if let Some(dialog_info) = inner.file_dialogs.remove(&token) {
             let cmd = if let Some(info) = file_info {
-                dialog_info.accept_cmd.with(info).to(dialog_info.id)
+                dialog_info.accept_cmd.with(info)
             } else {
-                dialog_info.cancel_cmd.to(dialog_info.id)
+                Command::from(dialog_info.cancel_cmd)
             };
+
+            let cmd = if let Some(widget) = dialog_info.target_widget {
+                cmd.to(widget)
+            } else {
+                cmd.to(dialog_info.id)
+            };
+
             inner.append_command(cmd);
         } else {
             tracing::error!("unknown dialog token");

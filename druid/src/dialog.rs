@@ -21,7 +21,7 @@ use std::path::PathBuf;
 
 use druid_shell::FileDialogOptions as ShellOptions;
 
-use crate::{FileInfo, FileSpec, Selector};
+use crate::{FileInfo, FileSpec, Selector, WidgetId};
 
 /// Options for file dialogs.
 ///
@@ -117,6 +117,7 @@ pub struct FileDialogOptions {
     pub(crate) accept_cmd: Option<Selector<FileInfo>>,
     pub(crate) accept_multiple_cmd: Option<Selector<Vec<FileInfo>>>,
     pub(crate) cancel_cmd: Option<Selector<()>>,
+    pub(crate) target: Option<WidgetId>,
 }
 
 impl FileDialogOptions {
@@ -223,6 +224,15 @@ impl FileDialogOptions {
     /// which will usually be a directory that the user recently visited.
     pub fn force_starting_directory(mut self, path: impl Into<PathBuf>) -> Self {
         self.opt = self.opt.force_starting_directory(path);
+        self
+    }
+
+    /// Sets a custom target widget for the resulting commands
+    ///
+    /// By default, the commands are sent to the window. This allows the events to be directed to a particular widget.
+    pub fn target_widget(mut self, widget_id: WidgetId) -> Self {
+        self.target = Some(widget_id);
+
         self
     }
 
