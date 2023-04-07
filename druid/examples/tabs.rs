@@ -19,7 +19,7 @@
 
 use druid::im::Vector;
 use druid::widget::{Axis, Button, CrossAxisAlignment, Flex, Label, LensWrap, MainAxisAlignment, RadioGroup, Split, TabChangeAction, TabInfo, Tabs, TabsEdge, TabsPolicy, TabsTransition, TextBox, ViewSwitcher};
-use druid::{theme, AppLauncher, Color, Data, Env, Lens, Widget, WidgetExt, WindowDesc, LensExt, WidgetId, EventCtx};
+use druid::{theme, AppLauncher, Color, Data, Env, Lens, Widget, WidgetExt, WindowDesc, LensExt, WidgetId, EventCtx, UpdateCtx};
 use instant::Duration;
 
 #[derive(Data, Clone, Lens)]
@@ -227,7 +227,7 @@ impl TabsPolicy for NumberedTabs {
         data.remove_tab(idx);
     }
 
-    fn selected_changed(&self, key: &Self::Key) -> druid::widget::TabChangeAction {
+    fn selected_changed(&self, _ctx: &mut UpdateCtx, key: &Self::Key) -> druid::widget::TabChangeAction {
         let (_idx, id) = key;
         TabChangeAction::Focus(id.clone())
     }

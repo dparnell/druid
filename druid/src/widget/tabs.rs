@@ -130,7 +130,7 @@ pub trait TabsPolicy: Data {
 
     /// Called when the selected tab changes.
     #[allow(unused_variables)]
-    fn selected_changed(&self, key: &Self::Key) -> TabChangeAction { TabChangeAction::Nothing }
+    fn selected_changed(&self, ctx: &mut UpdateCtx, key: &Self::Key) -> TabChangeAction { TabChangeAction::Nothing }
 }
 
 /// A TabsPolicy that allows the app developer to provide static tabs up front when building the
@@ -454,7 +454,7 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
                 let (current_key, _) = current_key.unwrap();
 
                 if old_key != current_key {
-                    match data.policy.selected_changed(current_key) {
+                    match data.policy.selected_changed(ctx, current_key) {
                         TabChangeAction::Nothing => {}
                         TabChangeAction::Focus(id) => {
                             ctx.submit_command(druid::Command::new(FOCUS_TAB, id, ctx.widget_id()))
@@ -468,7 +468,7 @@ impl<TP: TabsPolicy> Widget<TabsState<TP>> for TabBar<TP> {
                     // do nothing
                 } else {
                     if let Some((key, _)) = current_key {
-                        match data.policy.selected_changed(key) {
+                        match data.policy.selected_changed(ctx, key) {
                             TabChangeAction::Nothing => {}
                             TabChangeAction::Focus(id) => {
                                 ctx.submit_command(druid::Command::new(FOCUS_TAB, id, ctx.widget_id()))
