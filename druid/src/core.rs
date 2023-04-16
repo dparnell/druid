@@ -15,11 +15,12 @@
 //! The fundamental Druid types.
 
 use std::collections::VecDeque;
+use std::iter;
 use tracing::{trace, trace_span, warn};
 
 use crate::bloom::Bloom;
 use crate::command::sys::{CLOSE_WINDOW, SUB_WINDOW_HOST_TO_PARENT, SUB_WINDOW_PARENT_TO_HOST};
-use crate::commands::SCROLL_TO_VIEW;
+use crate::commands::{DUMP_WIDGET_TREE, SCROLL_TO_VIEW};
 use crate::contexts::{ChangeCtx, ContextState};
 use crate::kurbo::{Affine, Insets, Point, Rect, Shape, Size};
 use crate::sub_window::SubWindowUpdate;
@@ -28,6 +29,7 @@ use crate::{
     InternalLifeCycle, LayoutCtx, LifeCycle, LifeCycleCtx, Notification, PaintCtx, Region,
     RenderContext, Target, TextLayout, UpdateCtx, Widget, WidgetId, WindowId,
 };
+use crate::event::StateCheckFn;
 
 /// Our queue type
 pub(crate) type CommandQueue = VecDeque<Command>;
@@ -791,8 +793,24 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
             Event::Zoom(_) => had_active || self.state.is_hot,
             Event::Timer(_) => false, // This event was targeted only to our parent
             Event::ImeStateChange => true, // once delivered to the focus widget, recurse to the component?
+            Event::Command(cmd) if cmd.is(DUMP_WIDGET_TREE)  => {
+                let mut st = self.state.clone();
+                let mut lifecycle_context = LifeCycleCtx {
+                    state: ctx.state,
+                    widget_state: &mut st,
+                };
+
+                let debug_event = LifeCycle::Internal(InternalLifeCycle::DebugInspectState(StateCheckFn::new(|depth, s| {
+                    let indent: String = iter::repeat("  ").take(depth).collect();
+                    println!("{indent:}{:?} : {:?}", s.id, s.children);
+                })));
+
+                self.lifecycle(&mut lifecycle_context, &debug_event, data, env);
+                false
+            },
             Event::Command(_) => true,
             Event::Notification(_) => false,
+
         };
 
         if recurse {
@@ -998,7 +1016,11 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
                     }
                 }
                 InternalLifeCycle::DebugInspectState(f) => {
-                    f.call(&self.state);
+                    f.call(0, &self.state);
+                    true
+                },
+                InternalLifeCycle::DebugInspectStateDepth(d, f) => {
+                    f.call(*d, &self.state);
                     true
                 }
             },
@@ -1079,7 +1101,15 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
         };
 
         if recurse {
-            self.inner.lifecycle(&mut child_ctx, event, data, env);
+            if let LifeCycle::Internal(InternalLifeCycle::DebugInspectState(f)) = event {
+                let event = LifeCycle::Internal(InternalLifeCycle::DebugInspectStateDepth(1, f.clone()));
+                self.inner.lifecycle(&mut child_ctx, &event, data, env);
+            } else if let LifeCycle::Internal(InternalLifeCycle::DebugInspectStateDepth(d, f)) = event {
+                let event = LifeCycle::Internal(InternalLifeCycle::DebugInspectStateDepth(d+1, f.clone()));
+                self.inner.lifecycle(&mut child_ctx, &event, data, env);
+            } else {
+                self.inner.lifecycle(&mut child_ctx, event, data, env);
+            }
         }
 
         if let Some(event) = extra_event.as_ref() {

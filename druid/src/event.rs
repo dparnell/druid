@@ -209,7 +209,7 @@ pub enum Event {
     /// This should always be passed down to descendant [`WidgetPod`]s.
     ///
     /// [`WidgetPod`]: crate::WidgetPod
-    Internal(InternalEvent),
+    Internal(InternalEvent)
 }
 
 /// Internal events used by Druid inside [`WidgetPod`].
@@ -376,6 +376,8 @@ pub enum InternalLifeCycle {
     },
     /// For testing: apply the given function on every widget.
     DebugInspectState(StateCheckFn),
+    /// Internally: apply the given function on every widget with the depth increasing for nested widgets
+    DebugInspectStateDepth(usize, StateCheckFn),
 }
 
 /// Information about the widget's surroundings.
@@ -516,7 +518,8 @@ impl InternalLifeCycle {
             InternalLifeCycle::RouteViewContextChanged { .. } => false,
             InternalLifeCycle::DebugRequestState { .. }
             | InternalLifeCycle::DebugRequestDebugState { .. }
-            | InternalLifeCycle::DebugInspectState(_) => true,
+            | InternalLifeCycle::DebugInspectState(_)
+            | InternalLifeCycle::DebugInspectStateDepth { .. } => true,
         }
     }
 }
@@ -550,7 +553,7 @@ mod state_cell {
     pub struct DebugStateCell(Rc<RefCell<Option<DebugState>>>);
 
     #[derive(Clone)]
-    pub struct StateCheckFn(Rc<dyn Fn(&WidgetState)>);
+    pub struct StateCheckFn(Rc<dyn Fn(usize, &WidgetState)>);
 
     /// a hacky way of printing the widget id if we panic
     struct WidgetDrop(bool, WidgetId);
@@ -595,13 +598,13 @@ mod state_cell {
 
     impl StateCheckFn {
         #[cfg(not(target_arch = "wasm32"))]
-        pub(crate) fn new(f: impl Fn(&WidgetState) + 'static) -> Self {
+        pub(crate) fn new(f: impl Fn(usize, &WidgetState) + 'static) -> Self {
             StateCheckFn(Rc::new(f))
         }
 
-        pub(crate) fn call(&self, state: &WidgetState) {
+        pub(crate) fn call(&self, depth: usize, state: &WidgetState) {
             let mut panic_reporter = WidgetDrop(true, state.id);
-            (self.0)(state);
+            (self.0)(depth, state);
             panic_reporter.0 = false;
         }
     }

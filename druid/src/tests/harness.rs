@@ -239,7 +239,7 @@ impl<T: Data> Harness<'_, T> {
     /// Inspect the `WidgetState` of each widget in the tree.
     ///
     /// The provided closure will be called on each widget.
-    pub fn inspect_state(&mut self, f: impl Fn(&WidgetState) + 'static) {
+    pub fn inspect_state(&mut self, f: impl Fn(usize, &WidgetState) + 'static) {
         let checkfn = StateCheckFn::new(f);
         self.lifecycle(LifeCycle::Internal(InternalLifeCycle::DebugInspectState(
             checkfn,

@@ -31,10 +31,7 @@ use crate::core::CommandQueue;
 use crate::ext_event::{ExtEventHost, ExtEventSink};
 use crate::menu::{ContextMenu, MenuItemId, MenuManager};
 use crate::window::{ImeUpdateFn, Window};
-use crate::{
-    Command, Data, Env, Event, Handled, InternalEvent, KeyEvent, PlatformError, Selector, Target,
-    TimerToken, WidgetId, WindowDesc, WindowId,
-};
+use crate::{Command, Data, Env, Event, Handled, InternalEvent, KeyEvent, PlatformError, Selector, Target, TimerToken, WidgetId, WindowDesc, WindowId};
 
 use crate::app::{PendingWindow, WindowConfig};
 use crate::command::sys as sys_cmd;
