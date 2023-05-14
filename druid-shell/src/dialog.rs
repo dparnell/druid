@@ -158,7 +158,7 @@ pub struct FileDialogOptions {
 ///
 /// [`COMDLG_FILTERSPEC`]: https://docs.microsoft.com/en-ca/windows/win32/api/shtypes/ns-shtypes-comdlg_filterspec
 /// [packages]: struct.FileDialogOptions.html#packages
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileSpec {
     /// A human readable name, describing this filetype.
     ///
@@ -168,11 +168,11 @@ pub struct FileSpec {
     /// This should not include the file extensions; they will be added automatically.
     /// For instance, if we are describing Word documents, the name would be "Word Document",
     /// and the displayed string would be "Word Document (*.doc)".
-    pub name: &'static str,
+    pub name: String,
     /// The file extensions used by this file type.
     ///
     /// This should not include the leading '.'.
-    pub extensions: &'static [&'static str],
+    pub extensions: Vec<String>,
 }
 
 impl FileInfo {
@@ -296,15 +296,18 @@ impl FileDialogOptions {
 }
 
 impl FileSpec {
-    pub const TEXT: FileSpec = FileSpec::new("Text", &["txt"]);
-    pub const JPG: FileSpec = FileSpec::new("Jpeg", &["jpg", "jpeg"]);
-    pub const GIF: FileSpec = FileSpec::new("Gif", &["gif"]);
-    pub const PNG: FileSpec = FileSpec::new("Portable network graphics (png)", &["png"]);
-    pub const PDF: FileSpec = FileSpec::new("PDF", &["pdf"]);
-    pub const HTML: FileSpec = FileSpec::new("Web Page", &["htm", "html"]);
+    pub fn text() -> Self { FileSpec::new("Text", &["txt"]) }
+    pub fn jpg() -> Self { FileSpec::new("Jpeg", &["jpg", "jpeg"]) }
+    pub fn gif() -> Self { FileSpec::new("Gif", &["gif"]) }
+    pub fn png() -> Self { FileSpec::new("Portable network graphics (png)", &["png"]) }
+    pub fn pdf() -> Self { FileSpec::new("PDF", &["pdf"]) }
+    pub fn html() -> Self { FileSpec::new("Web Page", &["htm", "html"]) }
 
     /// Create a new `FileSpec`.
-    pub const fn new(name: &'static str, extensions: &'static [&'static str]) -> Self {
-        FileSpec { name, extensions }
+    pub fn new(name: &str, extensions: &[&str]) -> Self {
+        FileSpec {
+            name: String::from(name),
+            extensions: extensions.iter().map(|s| String::from(*s)).collect()
+        }
     }
 }

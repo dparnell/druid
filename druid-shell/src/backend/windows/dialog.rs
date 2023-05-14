@@ -139,10 +139,10 @@ pub(crate) unsafe fn get_file_dialog_path(
             };
 
             let default_allowed_type = options.allowed_types.as_ref().unwrap().get(index).unwrap();
-            let default_extension = default_allowed_type.extensions.first().unwrap_or(&"");
+            let default_extension = default_allowed_type.extensions.first();
 
             as_result(file_dialog.SetFileTypeIndex((index + 1).try_into().unwrap()))?;
-            as_result(file_dialog.SetDefaultExtension(default_extension.to_wide().as_ptr()))?;
+            as_result(file_dialog.SetDefaultExtension(default_extension.unwrap_or(&String::from("")).to_wide().as_ptr()))?;
         }
     }
 

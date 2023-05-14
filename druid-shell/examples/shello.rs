@@ -53,16 +53,16 @@ impl WinHandler for HelloState {
             0x101 => {
                 let options = FileDialogOptions::new().show_hidden().allowed_types(vec![
                     FileSpec::new("Rust Files", &["rs", "toml"]),
-                    FileSpec::TEXT,
-                    FileSpec::JPG,
+                    FileSpec::text(),
+                    FileSpec::jpg(),
                 ]);
                 self.handle.open_file(options);
             }
             0x102 => {
                 let options = FileDialogOptions::new().show_hidden().allowed_types(vec![
                     FileSpec::new("Rust Files", &["rs", "toml"]),
-                    FileSpec::TEXT,
-                    FileSpec::JPG,
+                    FileSpec::text(),
+                    FileSpec::jpg(),
                 ]);
                 self.handle.save_as(options);
             }
